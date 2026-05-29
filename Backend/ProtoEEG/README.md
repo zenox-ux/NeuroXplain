@@ -107,16 +107,17 @@ python nmt_to_proto.py `
 
 ---
 
-# 🖼️ Visualizations
 
-### Training Curve
-![Training Curve](./assets/image-1.png)
 
-### Results
-![Results](./assets/image-2.png)
+![](./assets/image-3.png)
 
-### Metrics
-![Metrics](./assets/image-3.png)
+![](./assets/image-4.png)
+
+![](./assets/image-5.png)
+
+![](./assets/image-6.png)
+
+
 
 # 4. Running the Code
 
