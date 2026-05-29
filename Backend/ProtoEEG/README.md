@@ -109,13 +109,13 @@ python nmt_to_proto.py `
 
 
 
-![](./assets/image-3.png)
+![](./assets/image-1.png)
 
-![](./assets/image-4.png)
+![](./assets/image-2.png)
 
-![](./assets/image-5.png)
+![](./assets/image.png)
 
-![](./assets/image-6.png)
+
 
 
 
@@ -152,6 +152,15 @@ python start_train.py
 ```
 
 ---
+
+![](./assets/image-3.png)
+
+![](./assets/image-4.png)
+
+![](./assets/image-5.png)
+
+![](./assets/image-6.png)
+
 
 ## W&B Sweep
 
