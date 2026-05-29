@@ -1,4 +1,3 @@
-````markdown
 # WAVESAGE
 
 The main goal of this project is to solve a big problem in neurology: **Micro-Event Localization**.
@@ -56,7 +55,7 @@ You’ll find folders for:
 Each folder has:
 
 | File | Purpose |
-|---|---|
+|------|---------|
 | `single_window.py` | Visualize one EEG sample |
 | `batch_processing.py` | Compute average metrics like IoU and F1-score across the test set |
 
@@ -72,13 +71,13 @@ We used **TensorFlow 2.x** for the 1D-CNN classifier.
 
 ```bash
 pip install tensorflow numpy matplotlib scikit-learn joblib pandas PyWavelets shap
-````
+```
 
 ---
 
 # 2. Running the Model
 
-The workflow is basically two steps.
+The workflow is basically two steps:
 
 ---
 
@@ -86,8 +85,8 @@ The workflow is basically two steps.
 
 The model first takes a 2-second EEG window and decides if it’s:
 
-* `Normal`
-* `Abnormal`
+- `Normal`
+- `Abnormal`
 
 ---
 
@@ -107,25 +106,22 @@ python ExplainableAI/GradCAM/single_window.py
 
 This will pop up a plot showing:
 
-* the raw EEG
-* the `"Importance Map"` (the parts the AI is focusing on)
+- the raw EEG
+- the `"Importance Map"` (the parts the AI is focusing on)
 
 ---
 
 # To Get Full Results (Metrics)
 
-If you want to see the:
+If you want to see:
 
-* IoU (Intersection over Union)
-* F1-score
+- IoU (Intersection over Union)
+- F1-score
 
-like we reported in the paper, run:
+as reported in the paper, run:
 
 ```bash
 python WAVSAGE/batch_processing.py
 ```
 
-It will process the abnormal windows and save the results in a CSV file.
-
-```
-```
+This will process abnormal windows and save the results in a CSV file.

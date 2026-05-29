@@ -54,17 +54,12 @@ After reviewing the EEG, users can generate a clinical report.
 
 The report generation uses the **Gemini API** to automatically summarize findings into readable text.
 
----
 
-# Screenshots
 
-```md
-![alt text](image.png)
+![](./assets/image.png)
 
-![alt text](image-1.png)
-```
+![](./assets/image-1.png)
 
----
 
 # Tech Stack
 
