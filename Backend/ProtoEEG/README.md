@@ -109,21 +109,14 @@ python nmt_to_proto.py `
 
 # 🖼️ Visualizations
 
-Place images inside:
+### Training Curve
+![Training Curve](./assets/image-1.png)
 
-```
-assets/
-```
+### Results
+![Results](./assets/image-2.png)
 
-Then use:
-
-```markdown
-![Training Curve](assets/image-1.png)
-![Results](assets/image-2.png)
-![Metrics](assets/image-3.png)
-```
-
----
+### Metrics
+![Metrics](./assets/image-3.png)
 
 # 4. Running the Code
 
