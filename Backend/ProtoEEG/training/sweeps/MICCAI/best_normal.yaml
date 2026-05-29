@@ -1,0 +1,84 @@
+# See: https://wandb.ai/wandb_fc/articles/reports/Multi-GPU-Hyperparameter-Sweeps-in-Three-Simple-Steps--Vmlldzo1NDQ0MDEy
+
+description: |
+  Run a sweep for the vanilla model to validate the sweep works.
+  This has only two parameter settings, and an abbreviated training schedule.
+
+entity: faiqqazi73-nust
+project: PROTOEEG
+
+program: training/sweeps/sweep-eeg.py
+
+method: bayes
+
+metric:
+  goal: maximize
+  name: best_prototypes_embedded_accuracy
+
+parameters:
+    backbone:
+      values: ["spikenet_summary"]
+    bias_lr:
+      values: [0.1]
+    bias_value:
+      values: [-1]
+    cluster_coef:
+      values: [2.011979845689322]
+    cross_entropy:
+      values: [8]
+    gamma:
+      values: [0.8717463703115372]
+    importance_stats:
+      values: [1]
+    interpretable_metrics:
+      values: [false]
+    joint_lr_step_size:
+      values: [9]
+    k_for_topk:
+      values: [1]
+    l1_coef:
+      values: [0.0006199103000337852]
+    l1_weightlayer_coef:
+      values: [0]
+    last_layer_lr_multiplier:
+      values: [3.0192626002168677]
+    latent_dim_multiplier_exp:
+      values: [0]
+    lr_multiplier:
+      values: [1.9166238905080932]
+    num_addon_layers:
+      values: [0]
+    num_prototypes_per_class:
+      values: [10]
+    orthogonality_loss:
+      values: [3.096597331492217]
+    phase_multiplier:
+      values: [1]
+    post_project_phases:
+      values: [2]
+    pre_project_phase_len:
+      values: [2]
+    separation_coef:
+      values: [5]
+    num_warm_pre_offset_epochs:
+      values: [0]
+    latent_dim_exp:
+      values: [7]
+    joint_epochs_per_phase:
+      values: [3]
+    last_only_epochs_per_phase:
+      values: [0]
+    contrastive:
+      values: [10]
+    joint_add_on_lr_multiplier:
+      values: [1]
+    warm_lr_multiplier:
+      values: [1]
+    warm_init:
+      values: [True]
+    seed:
+      values: [0, 42, 1234]
+    use_handcrafted_features:
+      values: [True]
+    use_handcrafted_features:
+      values: [True]

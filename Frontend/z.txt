@@ -1,0 +1,1166 @@
+// import React, { useState } from 'react';
+// import { Upload, FileText, Play, Pause, ZoomIn, ZoomOut, SkipForward, SkipBack } from 'lucide-react';
+
+// const EDFViewer = () => {
+//   const [file, setFile] = useState(null);
+//   const [edfData, setEdfData] = useState(null);
+//   const [loading, setLoading] = useState(false);
+//   const [error, setError] = useState(null);
+//   const [timeWindow, setTimeWindow] = useState({ start: 0, duration: 10 }); // 10 second window
+//   const [amplitude, setAmplitude] = useState(1);
+//   const [isPlaying, setIsPlaying] = useState(false);
+
+//   // Simple EDF parser
+//   const parseEDF = async (arrayBuffer) => {
+//     const view = new DataView(arrayBuffer);
+//     const decoder = new TextDecoder('ascii');
+    
+//     // Parse header (256 bytes)
+//     const header = {
+//       version: decoder.decode(new Uint8Array(arrayBuffer, 0, 8)).trim(),
+//       patientId: decoder.decode(new Uint8Array(arrayBuffer, 8, 80)).trim(),
+//       recordingId: decoder.decode(new Uint8Array(arrayBuffer, 88, 80)).trim(),
+//       startDate: decoder.decode(new Uint8Array(arrayBuffer, 168, 8)).trim(),
+//       startTime: decoder.decode(new Uint8Array(arrayBuffer, 176, 8)).trim(),
+//       headerBytes: parseInt(decoder.decode(new Uint8Array(arrayBuffer, 184, 8)).trim()),
+//       reserved: decoder.decode(new Uint8Array(arrayBuffer, 192, 44)).trim(),
+//       numDataRecords: parseInt(decoder.decode(new Uint8Array(arrayBuffer, 236, 8)).trim()),
+//       recordDuration: parseFloat(decoder.decode(new Uint8Array(arrayBuffer, 244, 8)).trim()),
+//       numSignals: parseInt(decoder.decode(new Uint8Array(arrayBuffer, 252, 4)).trim())
+//     };
+
+//     const ns = header.numSignals;
+//     let offset = 256;
+
+//     // Parse signal headers
+//     const signals = [];
+//     const readSignalField = (fieldSize) => {
+//       const values = [];
+//       for (let i = 0; i < ns; i++) {
+//         values.push(decoder.decode(new Uint8Array(arrayBuffer, offset, fieldSize)).trim());
+//         offset += fieldSize;
+//       }
+//       return values;
+//     };
+
+//     const labels = readSignalField(16);
+//     const transducerTypes = readSignalField(80);
+//     const physicalDimensions = readSignalField(8);
+//     const physicalMins = readSignalField(8).map(parseFloat);
+//     const physicalMaxs = readSignalField(8).map(parseFloat);
+//     const digitalMins = readSignalField(8).map(parseInt);
+//     const digitalMaxs = readSignalField(8).map(parseInt);
+//     const prefiltering = readSignalField(80);
+//     const samplesPerRecord = readSignalField(8).map(parseInt);
+//     const reserved = readSignalField(32);
+
+//     for (let i = 0; i < ns; i++) {
+//       signals.push({
+//         label: labels[i],
+//         transducerType: transducerTypes[i],
+//         physicalDimension: physicalDimensions[i],
+//         physicalMin: physicalMins[i],
+//         physicalMax: physicalMaxs[i],
+//         digitalMin: digitalMins[i],
+//         digitalMax: digitalMaxs[i],
+//         prefiltering: prefiltering[i],
+//         samplesPerRecord: samplesPerRecord[i],
+//         samples: [],
+//         samplingRate: samplesPerRecord[i] / header.recordDuration
+//       });
+//     }
+
+//     // Parse data records
+//     const dataOffset = header.headerBytes;
+//     let dataPosition = dataOffset;
+
+//     for (let rec = 0; rec < Math.min(header.numDataRecords, 100); rec++) {
+//       for (let sig = 0; sig < ns; sig++) {
+//         const signal = signals[sig];
+//         const numSamples = signal.samplesPerRecord;
+        
+//         for (let s = 0; s < numSamples; s++) {
+//           const digitalValue = view.getInt16(dataPosition, true);
+//           dataPosition += 2;
+          
+//           // Convert to physical value
+//           const physicalValue = 
+//             ((digitalValue - signal.digitalMin) / (signal.digitalMax - signal.digitalMin)) *
+//             (signal.physicalMax - signal.physicalMin) + signal.physicalMin;
+          
+//           signal.samples.push(physicalValue);
+//         }
+//       }
+//     }
+
+//     return { header, signals };
+//   };
+
+//   const handleFileUpload = async (e) => {
+//     const uploadedFile = e.target.files[0];
+//     if (!uploadedFile) return;
+
+//     setFile(uploadedFile);
+//     setLoading(true);
+//     setError(null);
+
+//     try {
+//       const arrayBuffer = await uploadedFile.arrayBuffer();
+//       const parsed = await parseEDF(arrayBuffer);
+//       setEdfData(parsed);
+//       setTimeWindow({ start: 0, duration: 10 });
+//     } catch (err) {
+//       setError(`Error parsing EDF file: ${err.message}`);
+//       console.error(err);
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   const renderMultiChannelView = () => {
+//     if (!edfData) return null;
+
+//     const width = 1200;
+//     const channelHeight = 30;
+//     const totalHeight = edfData.signals.length * channelHeight + 60;
+//     const padding = { left: 80, right: 40, top: 20, bottom: 40 };
+
+//     return (
+//       <div className="bg-white rounded-lg overflow-hidden border border-gray-300">
+//         <svg width="100%" height={totalHeight} viewBox={`0 0 ${width} ${totalHeight}`}>
+//           {/* Time axis */}
+//           <line 
+//             x1={padding.left} 
+//             y1={totalHeight - padding.bottom} 
+//             x2={width - padding.right} 
+//             y2={totalHeight - padding.bottom} 
+//             stroke="#333" 
+//             strokeWidth="2" 
+//           />
+          
+//           {/* Time markers */}
+//           {[0, 2, 4, 6, 8, 10].map(t => {
+//             const x = padding.left + ((t / timeWindow.duration) * (width - padding.left - padding.right));
+//             return (
+//               <g key={t}>
+//                 <line x1={x} y1={totalHeight - padding.bottom} x2={x} y2={totalHeight - padding.bottom + 5} stroke="#333" strokeWidth="1" />
+//                 <text x={x} y={totalHeight - padding.bottom + 20} fill="#333" fontSize="12" textAnchor="middle">
+//                   {(timeWindow.start + t).toFixed(1)}s
+//                 </text>
+//               </g>
+//             );
+//           })}
+
+//           {/* Render each channel */}
+//           {edfData.signals.map((signal, channelIdx) => {
+//             const yOffset = padding.top + channelIdx * channelHeight + channelHeight / 2;
+            
+//             // Calculate which samples to show based on time window
+//             const samplesPerSecond = signal.samplingRate;
+//             const startSample = Math.floor(timeWindow.start * samplesPerSecond);
+//             const endSample = Math.floor((timeWindow.start + timeWindow.duration) * samplesPerSecond);
+//             const visibleSamples = signal.samples.slice(startSample, endSample);
+
+//             if (visibleSamples.length === 0) return null;
+
+//             // Normalize signal for display
+//             const mean = visibleSamples.reduce((a, b) => a + b, 0) / visibleSamples.length;
+//             const std = Math.sqrt(visibleSamples.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / visibleSamples.length);
+            
+//             const points = visibleSamples.map((val, i) => {
+//               const x = padding.left + (i / visibleSamples.length) * (width - padding.left - padding.right);
+//               const normalizedVal = std > 0 ? ((val - mean) / std) * amplitude : 0;
+//               const y = yOffset - normalizedVal * (channelHeight / 6);
+//               return `${x},${y}`;
+//             }).join(' ');
+
+//             // Determine color based on channel index (alternating colors like the image)
+//             const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B'];
+//             const color = colors[channelIdx % colors.length];
+
+//             return (
+//               <g key={channelIdx}>
+//                 {/* Channel baseline */}
+//                 <line 
+//                   x1={padding.left} 
+//                   y1={yOffset} 
+//                   x2={width - padding.right} 
+//                   y2={yOffset} 
+//                   stroke="#E5E7EB" 
+//                   strokeWidth="1" 
+//                   strokeDasharray="5,5"
+//                 />
+                
+//                 {/* Channel label */}
+//                 <text 
+//                   x={padding.left - 10} 
+//                   y={yOffset + 5} 
+//                   fill="#333" 
+//                   fontSize="14" 
+//                   textAnchor="end"
+//                   fontWeight="600"
+//                 >
+//                   {signal.label}
+//                 </text>
+
+//                 {/* Signal waveform */}
+//                 <polyline
+//                   points={points}
+//                   fill="none"
+//                   stroke={color}
+//                   strokeWidth="1.5"
+//                 />
+//               </g>
+//             );
+//           })}
+//         </svg>
+//       </div>
+//     );
+//   };
+
+//   const handleTimeShift = (seconds) => {
+//     const maxTime = edfData ? (edfData.header.numDataRecords * edfData.header.recordDuration) - timeWindow.duration : 0;
+//     setTimeWindow(prev => ({
+//       ...prev,
+//       start: Math.max(0, Math.min(maxTime, prev.start + seconds))
+//     }));
+//   };
+
+//   const handleZoom = (factor) => {
+//     setTimeWindow(prev => ({
+//       ...prev,
+//       duration: Math.max(1, Math.min(30, prev.duration * factor))
+//     }));
+//   };
+
+//   // Upload screen
+//   if (!edfData && !loading) {
+//     return (
+//       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-8 flex items-center justify-center">
+//         <div className="max-w-2xl w-full">
+//           <div className="text-center mb-8">
+//             <h1 className="text-4xl font-bold text-gray-800 mb-2">EEG Viewer</h1>
+//             <p className="text-gray-600">Upload your EDF file to visualize EEG signals</p>
+//           </div>
+
+//           <div className="bg-white rounded-2xl shadow-xl p-8">
+//             <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all">
+//               <div className="flex flex-col items-center justify-center pt-5 pb-6">
+//                 <Upload className="w-16 h-16 text-gray-400 mb-4" />
+//                 <p className="mb-2 text-lg text-gray-700">
+//                   <span className="font-semibold">Click to upload</span> or drag and drop
+//                 </p>
+//                 <p className="text-sm text-gray-500">.edf or .EDF files</p>
+//               </div>
+//               <input
+//                 type="file"
+//                 className="hidden"
+//                 accept=".edf,.EDF"
+//                 onChange={handleFileUpload}
+//               />
+//             </label>
+//           </div>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   // Loading screen
+//   if (loading) {
+//     return (
+//       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
+//         <div className="text-center">
+//           <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mb-4"></div>
+//           <p className="text-gray-700 text-lg">Processing EDF file...</p>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   // Main viewer screen
+//   return (
+//     <div className="min-h-screen bg-gray-50 p-4">
+//       <div className="max-w-7xl mx-auto">
+//         {/* Header */}
+//         <div className="bg-white rounded-lg shadow-sm p-4 mb-4 flex items-center justify-between">
+//           <div className="flex items-center gap-4">
+//             <FileText className="w-6 h-6 text-blue-600" />
+//             <div>
+//               <h2 className="text-lg font-semibold text-gray-800">{file?.name}</h2>
+//               <p className="text-sm text-gray-500">
+//                 {edfData?.header.patientId} • {edfData?.signals.length} channels
+//               </p>
+//             </div>
+//           </div>
+          
+//           <button
+//             onClick={() => {
+//               setEdfData(null);
+//               setFile(null);
+//             }}
+//             className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+//           >
+//             Load New File
+//           </button>
+//         </div>
+
+//         {/* Controls */}
+//         <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+//           <div className="flex items-center justify-between">
+//             <div className="flex items-center gap-2">
+//               <button
+//                 onClick={() => handleTimeShift(-10)}
+//                 className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+//                 title="Back 10s"
+//               >
+//                 <SkipBack className="w-5 h-5 text-gray-700" />
+//               </button>
+//               <button
+//                 onClick={() => handleTimeShift(-1)}
+//                 className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+//                 title="Back 1s"
+//               >
+//                 <SkipBack className="w-4 h-4 text-gray-700" />
+//               </button>
+//               <button
+//                 onClick={() => setIsPlaying(!isPlaying)}
+//                 className="p-3 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+//               >
+//                 {isPlaying ? (
+//                   <Pause className="w-5 h-5 text-white" />
+//                 ) : (
+//                   <Play className="w-5 h-5 text-white" />
+//                 )}
+//               </button>
+//               <button
+//                 onClick={() => handleTimeShift(1)}
+//                 className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+//                 title="Forward 1s"
+//               >
+//                 <SkipForward className="w-4 h-4 text-gray-700" />
+//               </button>
+//               <button
+//                 onClick={() => handleTimeShift(10)}
+//                 className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+//                 title="Forward 10s"
+//               >
+//                 <SkipForward className="w-5 h-5 text-gray-700" />
+//               </button>
+//             </div>
+
+//             <div className="flex items-center gap-4">
+//               <div className="flex items-center gap-2">
+//                 <span className="text-sm text-gray-600">Time Window:</span>
+//                 <button
+//                   onClick={() => handleZoom(0.5)}
+//                   className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+//                   title="Zoom in"
+//                 >
+//                   <ZoomIn className="w-4 h-4 text-gray-700" />
+//                 </button>
+//                 <span className="text-sm font-mono text-gray-800 min-w-[60px] text-center">
+//                   {timeWindow.duration}s
+//                 </span>
+//                 <button
+//                   onClick={() => handleZoom(2)}
+//                   className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+//                   title="Zoom out"
+//                 >
+//                   <ZoomOut className="w-4 h-4 text-gray-700" />
+//                 </button>
+//               </div>
+
+//               <div className="flex items-center gap-2">
+//                 <span className="text-sm text-gray-600">Amplitude:</span>
+//                 <input
+//                   type="range"
+//                   min="0.1"
+//                   max="3"
+//                   step="0.1"
+//                   value={amplitude}
+//                   onChange={(e) => setAmplitude(parseFloat(e.target.value))}
+//                   className="w-32"
+//                 />
+//                 <span className="text-sm font-mono text-gray-800 min-w-[40px]">
+//                   {amplitude.toFixed(1)}x
+//                 </span>
+//               </div>
+//             </div>
+//           </div>
+
+//           {/* Timeline slider */}
+//           <div className="mt-4">
+//             <input
+//               type="range"
+//               min="0"
+//               max={(edfData?.header.numDataRecords * edfData?.header.recordDuration - timeWindow.duration) || 0}
+//               step="0.1"
+//               value={timeWindow.start}
+//               onChange={(e) => setTimeWindow(prev => ({ ...prev, start: parseFloat(e.target.value) }))}
+//               className="w-full"
+//             />
+//             <div className="flex justify-between text-xs text-gray-500 mt-1">
+//               <span>0:00</span>
+//               <span>{timeWindow.start.toFixed(1)}s</span>
+//               <span>{((edfData?.header.numDataRecords * edfData?.header.recordDuration) || 0).toFixed(1)}s</span>
+//             </div>
+//           </div>
+//         </div>
+
+//         {/* Multi-channel viewer */}
+//         {renderMultiChannelView()}
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default EDFViewer;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+update the code using the following information the
+name is in the cells 
+B9 to B38
+English marks in C9 to C38
+Urdu in D9 to D38
+Maths in E9 to E38
+Roll no in A9 to A38
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import * as d3 from 'd3';
+import { 
+  Play, 
+  Pause, 
+  Upload, 
+  FileText, 
+  ZoomIn, 
+  ZoomOut, 
+  Activity, 
+  SkipBack, 
+  SkipForward, 
+  Clock,
+  Settings,
+  X
+} from 'lucide-react';
+
+// --- Types & Interfaces ---
+
+interface EDFHeader {
+  version: string;
+  patientId: string;
+  recordId: string;
+  startDate: string;
+  startTime: string;
+  headerBytes: number;
+  reserved: string;
+  numDataRecords: number;
+  recordDuration: number;
+  numSignals: number;
+}
+
+interface SignalHeader {
+  label: string;
+  transducerType: string;
+  physicalDimension: string;
+  physicalMin: number;
+  physicalMax: number;
+  digitalMin: number;
+  digitalMax: number;
+  prefiltering: string;
+  samplesPerRecord: number;
+  offset?: number; // Byte offset in the data record
+}
+
+interface ParsedEDF {
+  header: EDFHeader;
+  signals: SignalHeader[];
+  data: Float32Array[]; // Array of raw samples per channel
+  totalDuration: number;
+}
+
+// --- EDF Parsing Logic (Internal Utility) ---
+
+const parseString = (buffer: ArrayBuffer, start: number, length: number): string => {
+  const decoder = new TextDecoder('ascii');
+  return decoder.decode(buffer.slice(start, start + length)).trim();
+};
+
+const parseNumber = (buffer: ArrayBuffer, start: number, length: number): number => {
+  const str = parseString(buffer, start, length);
+  return parseFloat(str);
+};
+
+const parseEDF = async (file: File): Promise<ParsedEDF> => {
+  const buffer = await file.arrayBuffer();
+  
+  // 1. Parse General Header (First 256 bytes)
+  const header: EDFHeader = {
+    version: parseString(buffer, 0, 8),
+    patientId: parseString(buffer, 8, 80),
+    recordId: parseString(buffer, 88, 80),
+    startDate: parseString(buffer, 168, 8),
+    startTime: parseString(buffer, 176, 8),
+    headerBytes: parseNumber(buffer, 184, 8),
+    reserved: parseString(buffer, 192, 44),
+    numDataRecords: parseNumber(buffer, 236, 8),
+    recordDuration: parseNumber(buffer, 244, 8),
+    numSignals: parseNumber(buffer, 252, 4),
+  };
+
+  const ns = header.numSignals;
+  
+  // 2. Parse Signal Headers
+  // The signal header block is immediately after the general header.
+  // It is organized as: all labels, then all transducer types, etc.
+  
+  const signals: SignalHeader[] = [];
+  let curr = 256;
+
+  const readSignalProps = (length: number) => {
+    const props = [];
+    for (let i = 0; i < ns; i++) {
+      props.push(parseString(buffer, curr + (i * length), length));
+    }
+    curr += ns * length;
+    return props;
+  };
+  
+  const readSignalNums = (length: number) => {
+    const props = [];
+    for (let i = 0; i < ns; i++) {
+      props.push(parseFloat(parseString(buffer, curr + (i * length), length)));
+    }
+    curr += ns * length;
+    return props;
+  };
+
+  const labels = readSignalProps(16);
+  const transducers = readSignalProps(80);
+  const dimensions = readSignalProps(8);
+  const physMins = readSignalNums(8);
+  const physMaxs = readSignalNums(8);
+  const digMins = readSignalNums(8);
+  const digMaxs = readSignalNums(8);
+  const prefilterings = readSignalProps(80);
+  const samplesPerRecords = readSignalNums(8);
+  // Reserved 32 bytes per signal
+  curr += ns * 32;
+
+  // Calculate offsets within a data record
+  let totalSamplesPerRecord = 0;
+  
+  for (let i = 0; i < ns; i++) {
+    signals.push({
+      label: labels[i],
+      transducerType: transducers[i],
+      physicalDimension: dimensions[i],
+      physicalMin: physMins[i],
+      physicalMax: physMaxs[i],
+      digitalMin: digMins[i],
+      digitalMax: digMaxs[i],
+      prefiltering: prefilterings[i],
+      samplesPerRecord: samplesPerRecords[i],
+    });
+    totalSamplesPerRecord += samplesPerRecords[i];
+  }
+
+  // 3. Parse Data Records
+  // Data starts at header.headerBytes
+  // Structure: [Record 1][Record 2]...
+  // Inside Record: [Signal 1 Samples][Signal 2 Samples]...
+  
+  const dataStart = header.headerBytes;
+  const dataView = new DataView(buffer);
+  
+  // Initialize data arrays
+  const channelData: Float32Array[] = signals.map(sig => 
+    new Float32Array(header.numDataRecords * sig.samplesPerRecord)
+  );
+
+  let bufferOffset = dataStart;
+  
+  // Pre-calculate scales for physical conversion
+  // Value = (dig - digMin) * (physMax - physMin) / (digMax - digMin) + physMin
+  const scales = signals.map(s => (s.physicalMax - s.physicalMin) / (s.digitalMax - s.digitalMin));
+  const offsets = signals.map(s => s.physicalMin - (s.digitalMin * scales[signals.indexOf(s)])); // Simplified offset logic check
+
+  // Correct offset logic:
+  // val = physMin + (raw - digMin) * scale
+  // val = physMin - digMin*scale + raw*scale
+  const polyB = signals.map((s, i) => s.physicalMin - (s.digitalMin * scales[i]));
+
+  for (let r = 0; r < header.numDataRecords; r++) {
+    for (let s = 0; s < ns; s++) {
+      const sig = signals[s];
+      const sampleCount = sig.samplesPerRecord;
+      const targetArray = channelData[s];
+      const startIdx = r * sampleCount;
+      const scale = scales[s];
+      const bias = polyB[s];
+
+      for (let k = 0; k < sampleCount; k++) {
+        // EDF data is 16-bit signed integer little endian
+        const raw = dataView.getInt16(bufferOffset, true);
+        targetArray[startIdx + k] = (raw * scale) + bias;
+        bufferOffset += 2;
+      }
+    }
+  }
+
+  return {
+    header,
+    signals,
+    data: channelData,
+    totalDuration: header.numDataRecords * header.recordDuration
+  };
+};
+
+
+// --- Components ---
+
+const FileUpload: React.FC<{ onFileSelect: (file: File) => void }> = ({ onFileSelect }) => {
+  const [dragActive, setDragActive] = useState(false);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.name.toLowerCase().endsWith('.edf')) {
+        onFileSelect(file);
+      } else {
+        alert("Please upload a .edf file");
+      }
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      onFileSelect(e.target.files[0]);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center h-screen bg-slate-50 p-4">
+      <div 
+        className={`
+          w-full max-w-xl p-12 text-center border-4 border-dashed rounded-3xl transition-all duration-300
+          ${dragActive ? 'border-blue-500 bg-blue-50 scale-105' : 'border-slate-300 bg-white hover:border-slate-400 shadow-xl'}
+        `}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+      >
+        <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Activity className="w-10 h-10 text-blue-600" />
+        </div>
+        <h2 className="text-3xl font-bold text-slate-800 mb-2">NeuroXplain</h2>
+        <p className="text-slate-500 mb-8">Drag & drop your .EDF file here, or click to browse</p>
+        
+        <label className="relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-medium text-white transition duration-300 ease-out border-2 border-blue-600 rounded-full shadow-md group cursor-pointer bg-blue-600 hover:bg-blue-700">
+          <span className="absolute inset-0 flex items-center justify-center w-full h-full text-white duration-300 -translate-x-full group-hover:translate-x-0 ease">
+            <Upload className="w-6 h-6" />
+          </span>
+          <span className="absolute flex items-center justify-center w-full h-full text-white transition-all duration-300 transform group-hover:translate-x-full ease">
+            Select File
+          </span>
+          <span className="relative invisible">Select File</span>
+          <input type="file" accept=".edf" className="hidden" onChange={handleChange} />
+        </label>
+        
+        <div className="mt-8 text-xs text-slate-400">
+          Supports Standard EDF Format. Processing is done locally in your browser.
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const LoadingScreen: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-screen bg-slate-50">
+    <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+    <h2 className="text-xl font-semibold text-slate-700">Parsing EDF Data...</h2>
+    <p className="text-slate-500">This may take a moment for large recordings.</p>
+  </div>
+);
+
+// --- Main Viewer Component ---
+
+const EEGViewer: React.FC<{ data: ParsedEDF, fileName: string, onReset: () => void }> = ({ data, fileName, onReset }) => {
+  const [currentTime, setCurrentTime] = useState(0); // in seconds
+  const [windowSize, setWindowSize] = useState(10); // in seconds
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [amplitudeScale, setAmplitudeScale] = useState(1); // vertical zoom
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+  const animationRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(0);
+
+  // Visualization Constants
+  const SIDEBAR_WIDTH = 100;
+  const MARGIN = { top: 30, right: 20, bottom: 30, left: SIDEBAR_WIDTH };
+  const CHART_BG = "#ffffff";
+  const GRID_COLOR = "#f1f5f9";
+  
+  // Filter out non-EEG channels if needed, or just display all.
+  // For simplicity, we display all, but usually Annotations are treated differently.
+  const displaySignals = useMemo(() => {
+    return data.signals.filter(s => s.label.toLowerCase() !== 'edf annotations');
+  }, [data]);
+
+  const numChannels = displaySignals.length;
+
+  // --- Animation Loop ---
+  const animate = useCallback((timestamp: number) => {
+    if (!lastTimeRef.current) lastTimeRef.current = timestamp;
+    const deltaTime = (timestamp - lastTimeRef.current) / 1000;
+    
+    setCurrentTime(prev => {
+      let next = prev + (deltaTime * playbackSpeed);
+      if (next > data.totalDuration - windowSize) {
+        setIsPlaying(false);
+        return prev;
+      }
+      return next;
+    });
+
+    lastTimeRef.current = timestamp;
+    if (isPlaying) {
+      animationRef.current = requestAnimationFrame(animate);
+    }
+  }, [isPlaying, playbackSpeed, data.totalDuration, windowSize]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      lastTimeRef.current = 0;
+      animationRef.current = requestAnimationFrame(animate);
+    } else {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    }
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [isPlaying, animate]);
+
+  // --- D3 Render ---
+  
+  // Helper to generate path data for a single channel
+  const getChannelPath = (signalIndex: number, width: number, laneHeight: number) => {
+    const signal = displaySignals[signalIndex];
+    const originalIndex = data.signals.indexOf(signal);
+    const rawData = data.data[originalIndex];
+    
+    // Sampling rate
+    const sampleRate = signal.samplesPerRecord / data.header.recordDuration;
+    
+    // Calculate indices for current window
+    const startSample = Math.floor(currentTime * sampleRate);
+    const endSample = Math.ceil((currentTime + windowSize) * sampleRate);
+    
+    // Slice data for view
+    // Safety check bounds
+    const slice = rawData.subarray(
+      Math.max(0, startSample), 
+      Math.min(rawData.length, endSample)
+    );
+    
+    if (slice.length === 0) return "";
+
+    // X Scale: Maps time (relative to window) to pixels
+    const xScale = d3.scaleLinear()
+      .domain([0, slice.length])
+      .range([0, width]);
+
+    // Y Scale: Normalize roughly around 0 (assume mean 0 for AC coupled EEG usually, or use min/max)
+    // We map -100uV to +100uV (arbitrary default) to lane height
+    // Adjust sensitivity with amplitudeScale
+    const sensitivity = 100 / amplitudeScale; // uV roughly
+    
+    // We want the signal centered in the lane.
+    // Lane center is at y = 0 relative to the path transform
+    const yScale = d3.scaleLinear()
+      .domain([-sensitivity, sensitivity])
+      .range([laneHeight / 2, -laneHeight / 2]); // Invert Y for screen coords
+
+    const lineGenerator = d3.line<number>()
+      .x((d:any, i:any) => xScale(i))
+      .y((d:any) => yScale(d))
+      .curve(d3.curveLinear); // Fast rendering
+
+    return lineGenerator(Array.from(slice)) || "";
+  };
+
+  const handleScrubberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = parseFloat(e.target.value);
+    setCurrentTime(newVal);
+    // Pause if dragging to avoid jitter
+    // setIsPlaying(false); 
+  };
+
+  const togglePlay = () => setIsPlaying(!isPlaying);
+
+  // Time Markers
+  const timeMarkers = useMemo(() => {
+    const markers = [];
+    // Adjust step based on windowSize to prevent overcrowding.
+    // When windowSize is 60s, use 5s intervals (as requested: "0s then 5s").
+    let step;
+
+    if (windowSize >= 60) {
+      step = 5;
+    } else if (windowSize >= 50) {
+      step = 4;
+    } else if (windowSize >= 40) {
+      step = 3;
+    } else if (windowSize >= 30) {
+      step = 2;
+    }
+    else {
+      step = 1;
+    }
+    
+    // Align markers to step intervals (0, 5, 10...)
+    const start = Math.floor(currentTime / step) * step;
+    
+    for (let t = start; t < currentTime + windowSize; t += step) {
+      markers.push(t);
+    }
+    return markers;
+  }, [currentTime, windowSize]);
+  
+  // Format seconds to HH:MM:SS
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-slate-50 text-slate-800 overflow-hidden font-sans">
+      
+      {/* --- Header --- */}
+      <header className="flex items-center justify-between px-6 py-3 bg-white border-b border-slate-200 shadow-sm z-20">
+        <div className="flex items-center space-x-4">
+          <div className="p-2 bg-blue-100 rounded-lg">
+             <FileText className="w-6 h-6 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-slate-800">{fileName}</h1>
+            <div className="text-xs text-slate-500 flex items-center space-x-2">
+              <span>{data.header.patientId || "Unknown Patient"}</span>
+              <span>•</span>
+              <span>{new Date(data.header.startDate).toLocaleDateString()}</span>
+              <span>•</span>
+              <span>{formatTime(data.totalDuration)} Total</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-6">
+           {/* Playback Controls */}
+           <div className="flex items-center bg-slate-100 rounded-full p-1 border border-slate-200">
+             <button onClick={() => setCurrentTime(Math.max(0, currentTime - 5))} className="p-2 hover:bg-white rounded-full transition text-slate-600">
+               <SkipBack className="w-4 h-4" />
+             </button>
+             <button onClick={togglePlay} className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-md transition mx-1">
+               {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+             </button>
+             <button onClick={() => setCurrentTime(Math.min(data.totalDuration, currentTime + 5))} className="p-2 hover:bg-white rounded-full transition text-slate-600">
+               <SkipForward className="w-4 h-4" />
+             </button>
+           </div>
+           
+           <div className="h-8 w-px bg-slate-200"></div>
+
+           {/* View Controls */}
+           <div className="flex items-center space-x-2">
+             <div className="flex flex-col items-center">
+                <span className="text-[10px] uppercase font-bold text-slate-400 mb-1">Time Scale</span>
+                <div className="flex bg-slate-100 rounded-lg p-1">
+                  <button onClick={() => setWindowSize(Math.max(1, windowSize - 2))} className="p-1.5 hover:bg-white rounded shadow-sm text-slate-600"><ZoomIn className="w-4 h-4" /></button>
+                  <span className="px-2 text-xs font-mono font-medium flex items-center">{windowSize}s</span>
+                  <button onClick={() => setWindowSize(Math.min(60, windowSize + 2))} className="p-1.5 hover:bg-white rounded shadow-sm text-slate-600"><ZoomOut className="w-4 h-4" /></button>
+                </div>
+             </div>
+             
+             <div className="flex flex-col items-center">
+                <span className="text-[10px] uppercase font-bold text-slate-400 mb-1">Amplitude</span>
+                <div className="flex bg-slate-100 rounded-lg p-1">
+                  <button onClick={() => setAmplitudeScale(Math.max(0.1, amplitudeScale - 1))} className="p-1.5 hover:bg-white rounded shadow-sm text-slate-600 text-xs">-</button>
+                  <span className="px-2 text-xs font-mono font-medium flex items-center">x{amplitudeScale}</span>
+                  <button onClick={() => setAmplitudeScale(Math.min(40, amplitudeScale + 1))} className="p-1.5 hover:bg-white rounded shadow-sm text-slate-600 text-xs">+</button>
+                </div>
+             </div>
+           </div>
+
+           <div className="h-8 w-px bg-slate-200"></div>
+
+           <button onClick={onReset} className="flex items-center space-x-1 text-red-500 hover:text-red-700 transition text-sm font-medium">
+             <X className="w-4 h-4" />
+             <span>Close File</span>
+           </button>
+        </div>
+      </header>
+
+      {/* --- Main Content --- */}
+      <div className="flex-1 relative flex overflow-hidden">
+        
+        {/* Sidebar (Channels) */}
+        <div 
+          className="bg-white border-r border-slate-200 flex-shrink-0 z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]" 
+          style={{ width: SIDEBAR_WIDTH, paddingTop: MARGIN.top }}
+        >
+          {displaySignals.map((sig, i) => (
+             <div 
+               key={i} 
+               className="flex items-center justify-end pr-4 text-xs font-bold text-slate-500 tracking-wider border-b border-transparent"
+               style={{ height: `${100 / numChannels}%` }}
+             >
+               {sig.label}
+             </div>
+          ))}
+        </div>
+
+        {/* Canvas Area */}
+        <div className="flex-1 relative bg-white cursor-crosshair" ref={containerRef}>
+            {/* Grid & Signals */}
+            <svg className="w-full h-full absolute inset-0">
+               {/* Background Grid */}
+               <defs>
+                 <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+                   <path d="M 100 0 L 0 0 0 100" fill="none" stroke={GRID_COLOR} strokeWidth="1"/>
+                 </pattern>
+               </defs>
+               <rect width="100%" height="100%" fill="url(#grid)" />
+
+               {/* Time Markers at Top */}
+               {timeMarkers.map(t => {
+                 const xPct = ((t - currentTime) / windowSize) * 100;
+                 if (xPct < 0 || xPct > 100) return null;
+                 return (
+                   <g key={t} transform={`translate(${containerRef.current ? containerRef.current.clientWidth * (xPct/100) : 0}, 0)`}>
+                     <line y1="0" y2="100%" stroke={GRID_COLOR} strokeDasharray="4 4" strokeWidth="2" />
+                     <text
+                      x="5"
+                      y="20"
+                      fill="black"
+                      strokeWidth="0.5"
+                      fontSize="10"
+                      fontWeight="900"
+                    >
+                        {formatTime(t)}
+                        {/* Show milliseconds if zoomed in tight? Optional */}
+                        {windowSize < 2 && `.${Math.floor((t % 1) * 100)}`}
+                     </text>
+                   </g>
+                 )
+               })}
+
+               {/* Signals */}
+               {containerRef.current && displaySignals.map((sig, i) => {
+                 const height = containerRef.current!.clientHeight;
+                 const width = containerRef.current!.clientWidth;
+                 const laneHeight = height / numChannels;
+                 const yOffset = (i * laneHeight) + (laneHeight / 2);
+                 const pathData = getChannelPath(i, width, laneHeight);
+
+                 return (
+                   <g key={i} transform={`translate(0, ${yOffset})`}>
+                      {/* Zero line for reference (faint) */}
+                      <line x1="0" x2="100%" y1="0" y2="0" stroke="#f1f5f9" strokeWidth="1" />
+                      {/* Signal */}
+                      <path 
+                        d={pathData} 
+                        fill="none" 
+                        stroke="#0f172a" 
+                        strokeWidth="1.2" 
+                        strokeLinejoin="round" 
+                        strokeLinecap="round"
+                      />
+                   </g>
+                 );
+               })}
+            </svg>
+        </div>
+      </div>
+
+      {/* --- Footer Scrubber --- */}
+      <div className="bg-white border-t border-slate-200 p-4 shadow-lg z-20">
+         <div className="flex items-center space-x-4 mb-2">
+            <span className="text-xs font-mono text-slate-500 w-16">{formatTime(currentTime)}</span>
+            <div className="relative flex-1 h-12 bg-slate-100 rounded-md overflow-hidden group cursor-pointer border border-slate-200">
+               {/* Mini Timeline Visualization (simplified as a progress bar for now) */}
+               <div 
+                 className="absolute inset-y-0 left-0 bg-blue-100/50" 
+                 style={{ width: `${(currentTime / data.totalDuration) * 100}%` }}
+               />
+               {/* Current View Window Indicator */}
+               <div 
+                 className="absolute inset-y-0 bg-blue-500 opacity-20 border-l border-r border-blue-600"
+                 style={{ 
+                   left: `${(currentTime / data.totalDuration) * 100}%`,
+                   width: `${(windowSize / data.totalDuration) * 100}%` 
+                 }}
+               />
+               <input 
+                  type="range" 
+                  min={0} 
+                  max={data.totalDuration - windowSize} 
+                  step={0.1}
+                  value={currentTime} 
+                  onChange={handleScrubberChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-10"
+               />
+            </div>
+            <span className="text-xs font-mono text-slate-500 w-16 text-right">{formatTime(data.totalDuration)}</span>
+         </div>
+      </div>
+
+    </div>
+  );
+};
+
+// --- App Root ---
+
+const App: React.FC = () => {
+  const [file, setFile] = useState<File | null>(null);
+  const [parsedData, setParsedData] = useState<ParsedEDF | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileSelect = async (selectedFile: File) => {
+    setFile(selectedFile);
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Small timeout to allow UI to show loading state
+      setTimeout(async () => {
+        try {
+          const data = await parseEDF(selectedFile);
+          setParsedData(data);
+        } catch (e) {
+          console.error(e);
+          setError("Failed to parse EDF file. Ensure it is a valid format.");
+          setFile(null);
+        } finally {
+          setIsLoading(false);
+        }
+      }, 100);
+    } catch (e) {
+      setError("An unexpected error occurred.");
+      setIsLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setFile(null);
+    setParsedData(null);
+  };
+
+  if (isLoading) return <LoadingScreen />;
+
+  if (!file || !parsedData) {
+    return (
+      <>
+        {error && (
+           <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-lg z-50 flex items-center">
+             <span className="mr-2">⚠️</span> {error}
+           </div>
+        )}
+        <FileUpload onFileSelect={handleFileSelect} />
+      </>
+    );
+  }
+
+  return (
+    <EEGViewer 
+      data={parsedData} 
+      fileName={file.name} 
+      onReset={handleReset} 
+    />
+  );
+};
+
+export default App;

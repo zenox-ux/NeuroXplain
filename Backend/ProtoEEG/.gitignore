@@ -1,0 +1,22 @@
+# Local training / inference output
+wandb/
+model_feats/
+model_knn_layers/
+models/
+training/**/runs/
+training/**/outputs/
+training/**/checkpoints/
+training/**/logs/
+
+# Generated reports and temporary files
+_tmp_*.py
+*.log
+z_file.txt
+*.pth
+*.pt
+*.h5
+*.weights.h5
+
+# Notebook state and caches
+.ipynb_checkpoints/
+__pycache__/

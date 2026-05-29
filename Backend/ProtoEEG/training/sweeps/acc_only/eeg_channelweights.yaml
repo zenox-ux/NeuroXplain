@@ -1,0 +1,110 @@
+# See: https://wandb.ai/wandb_fc/articles/reports/Multi-GPU-Hyperparameter-Sweeps-in-Three-Simple-Steps--Vmlldzo1NDQ0MDEy
+
+description: |
+  Run a sweep for the vanilla model to validate the sweep works.
+  This has only two parameter settings, and an abbreviated training schedule.
+
+entity: dukedennistang
+project: protoeeg
+
+program: training/sweeps/sweep-eeg.py
+
+method: bayes
+
+metric:
+  goal: maximize
+  name: best_prototypes_embedded_accuracy
+
+parameters:
+  backbone:
+    values: ["spikenet_summary"]
+  bias_value:
+    distribution: int_uniform
+    min: -4
+    max: 2
+    
+  importance_stats:
+    values: [0.1]
+    
+  bias_lr:
+    values: [0.05, 0.1, 0.25]
+  
+  k_for_topk:
+    values: [1]
+    
+  cross_entropy:
+    values: [8]
+    
+  l1_weightlayer_coef:
+    distribution: int_uniform
+    min: -3
+    max: 0
+  
+  pre_project_phase_len:
+    values: [20]
+  post_project_phases:
+    values: [5]
+  
+  phase_multiplier:
+    # 30 used for online augmentation with L2 distance
+    values: [1]
+  lr_multiplier:
+    distribution: normal
+    mu: 1.5
+    sigma: 0.5
+  last_layer_lr_multiplier:
+    distribution: normal
+    mu: 1.5
+    sigma: 1.0
+  joint_lr_step_size:
+    distribution: int_uniform
+    min: 5
+    max: 10
+
+  num_addon_layers:
+    values: [0]
+    
+  latent_dim_multiplier_exp:
+    values: [0]
+
+  num_prototypes_per_class:
+    distribution: int_uniform
+    min: 45
+    max: 65
+
+
+  cluster_coef:
+    # 10th: -1.44 90th: -0.16
+    distribution: log_normal
+    mu: 0
+    sigma: 2
+  separation_coef:
+      values: [5]
+    # 10th: -0.05, 90th: 0.21
+    # distribution: log_normal
+    #mu: 0.5
+    #sigma: 2
+    
+  gamma:
+    distribution: uniform
+    min: 0.6
+    max: 0.9
+    
+  orthogonality_loss:
+    distribution: log_uniform_values
+    min: 3
+    max: 5
+  
+  l1_coef:
+    distribution: log_uniform_values
+    min: 0.00001
+    max: 0.001
+
+  interpretable_metrics:
+    values: [False]
+    
+  use_spikenet_channelweights:
+    value: True
+      
+  use_handcrafted_features:
+    value: False

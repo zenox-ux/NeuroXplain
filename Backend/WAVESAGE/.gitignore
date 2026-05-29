@@ -1,0 +1,10 @@
+# Generated model artifacts and explainability outputs
+Model/
+SHAP/
+Explainable AIs/**/outputs/
+Explainable AIs/**/logs/
+*.h5
+*.pth
+*.pt
+*.weights.h5
+*.log
